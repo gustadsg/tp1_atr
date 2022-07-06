@@ -4,6 +4,8 @@
 #include <Windows.h>
 #include <process.h> 
 
+#include "../Utils/constants.h"
+
 using namespace std;
 
 HANDLE hAlarmExhibitionEvent;
@@ -18,7 +20,7 @@ int main()
 {
     cout << "Processo alarmExhibition iniciado. Esperando por evento..." << endl;
 
-    hAlarmExhibitionEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, "Global\\alarmExhibitionEvent");
+    hAlarmExhibitionEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, alarmExhibition);
     if (hAlarmExhibitionEvent == 0) {
         cout << "Falha em alarmExhibition ..." << endl;
         exit(1);
@@ -67,7 +69,7 @@ unsigned __stdcall threadAlarms(void *) {
 }
 
 unsigned __stdcall threadExit(void *) {
-    hExitEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, "Global\\exitEvent");
+    hExitEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, exitAll);
     WaitForSingleObject(hExitEvent, INFINITE);
     ExitProcess(0);
 }

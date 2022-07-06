@@ -4,6 +4,8 @@
 #include <Windows.h>
 #include <process.h> 
 
+#include "../Utils/constants.h"
+
 using namespace std;
 
 HANDLE hProcessDataExhibitionEvent;
@@ -18,7 +20,7 @@ int main()
 {
     cout << "Processo processDataExhibition iniciado. Esperando por evento..." << endl;
 
-    hProcessDataExhibitionEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, "Global\\processExhibitionEvent");
+    hProcessDataExhibitionEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, processExhibition);
     if (hProcessDataExhibitionEvent == 0) {
         cout << "Falha em processDataExhibition ..." << endl;
         exit(1);
@@ -67,7 +69,7 @@ unsigned __stdcall threadProcessData(void*) {
 }
 
 unsigned __stdcall threadExit(void*) {
-    hExitEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, "Global\\exitEvent");
+    hExitEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, exitAll);
     if (!hExitEvent) {
         cout << "Erro ao buscar handle de exit. Erro ID: " << GetLastError() << endl;
     }

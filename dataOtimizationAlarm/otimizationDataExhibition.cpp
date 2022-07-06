@@ -2,6 +2,8 @@
 #include <Windows.h>
 #include <process.h> 
 
+#include "../Utils/constants.h"
+
 using namespace std;
 
 HANDLE hOtimizationDataExhibitionEvent;
@@ -16,7 +18,7 @@ int main()
 {
     cout << "Processo otimizationDataExhibition iniciado. Esperando por evento..." << endl;
 
-    hOtimizationDataExhibitionEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, "Global\\otimizationExhibitionEvent");
+    hOtimizationDataExhibitionEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, otimizationExhibition);
     if (hOtimizationDataExhibitionEvent == 0) {
         cout << "Falha em otimizationDataExhibition ..." << endl;
         exit(1);
@@ -65,7 +67,7 @@ unsigned __stdcall threadOtimizationData(void*) {
 }
 
 unsigned __stdcall threadExit(void*) {
-    hExitEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, "Global\\exitEvent");
+    hExitEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, exitAll);
     WaitForSingleObject(hExitEvent, INFINITE);
     ExitProcess(0);
 }

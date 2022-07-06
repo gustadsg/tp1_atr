@@ -9,6 +9,7 @@
 #include <sstream>
 #include <process.h>    // _beginthreadex() e _endthreadex()  
 
+#include "../Utils/constants.h"
 #include "MessageGenerator.h"
 
 using namespace std;
@@ -187,7 +188,7 @@ bool createThreads() {
 
 unsigned __stdcall threadDataCommunication(void*) {
     cout << "Inicializando thread de adição de mensagens..." << endl;
-    hDataCommunicationEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, "Global\\dataCommunicationEvent");
+    hDataCommunicationEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, dataCommunication);
     if (!hDataCommunicationEvent) {
         int errorCode = GetLastError();
         cout << "Erro na abertura de evento de comunicação de dados. Erro ID: " << errorCode << endl;
@@ -215,7 +216,7 @@ unsigned __stdcall threadDataCommunication(void*) {
 
 unsigned __stdcall threadRemoveAlarms(void*) {
     cout << "Inicializando thread de remoção de alarmes..." << endl;
-    hAlarmRemovalEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, "Global\\alarmRemovalEvent");
+    hAlarmRemovalEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, alarmRemoval);
     if (!hAlarmRemovalEvent) {
         int errorCode = GetLastError();
         cout << "Erro na abertura de evento de remoção de alarmes. Erro ID: " << errorCode << endl;
@@ -231,7 +232,7 @@ unsigned __stdcall threadRemoveAlarms(void*) {
 
 unsigned __stdcall threadRemoveProcessData(void*) {
     cout << "Inicializando thread de remoção de dados de processo..." << endl;
-    hProcessDataRemovalEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, "Global\\processRemovalEvent");
+    hProcessDataRemovalEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, processRemoval);
     if (!hProcessDataRemovalEvent) {
         int errorCode = GetLastError();
         cout << "Erro na abertura de evento de dados de processo. Erro ID: " << errorCode << endl;
@@ -247,7 +248,7 @@ unsigned __stdcall threadRemoveProcessData(void*) {
 
 unsigned __stdcall threadRemoveOtimizationData(void*) {
     cout << "Inicializando thread de remoção de dados de otimização..." << endl;
-    hOtimizationDataRemovalEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, "Global\\otimizationRemovalEvent");
+    hOtimizationDataRemovalEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, otimizationRemoval);
     if (!hOtimizationDataRemovalEvent) {
         int errorCode = GetLastError();
         cout << "Erro na abertura de evento de remoção dados de otimização. Erro ID: " << errorCode << endl;
@@ -262,7 +263,7 @@ unsigned __stdcall threadRemoveOtimizationData(void*) {
 }
 
 unsigned __stdcall threadExit(void*) {
-    hExitEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, "Global\\exitEvent");
+    hExitEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, exitAll);
     WaitForSingleObject(hExitEvent, INFINITE);
     ExitProcess(0);
 }

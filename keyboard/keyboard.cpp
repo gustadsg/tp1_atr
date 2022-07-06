@@ -12,6 +12,8 @@
 #include <vector>
 #include <conio.h>
 
+#include "../Utils/constants.h"
+
 constexpr auto ESC = 0x1B;
 constexpr auto ERROR_STATUS = 0;
 
@@ -137,7 +139,7 @@ bool createEvents() {
 		NULL,               // default security attributes
 		TRUE,               // manual-reset event
 		FALSE,              // initial state is nonsignaled
-		TEXT("Global\\dataCommunicationEvent")  // object name
+		TEXT(dataCommunication)  // object name
 	);
 	printEventCreationStatus(hDataCommunicationEvent, "Global\\dataCommunicationEvent");
 
@@ -146,7 +148,7 @@ bool createEvents() {
 		NULL,               // default security attributes
 		TRUE,               // manual-reset event
 		FALSE,              // initial state is nonsignaled
-		TEXT("Global\\otimizationRemovalEvent")  // object name
+		TEXT(otimizationRemoval)  // object name
 	);
 	printEventCreationStatus(hOtimizationRemovalEvent, "otimizationRemovalEvent");
 	
@@ -154,7 +156,7 @@ bool createEvents() {
 		NULL,               // default security attributes
 		TRUE,               // manual-reset event
 		FALSE,              // initial state is nonsignaled
-		TEXT("Global\\processRemovalEvent")  // object name
+		TEXT(processRemoval)  // object name
 	);
 	printEventCreationStatus(hProcessRemovalEvent, "processRemovalEvent");
 
@@ -162,7 +164,7 @@ bool createEvents() {
 		NULL,               // default security attributes
 		TRUE,               // manual-reset event
 		FALSE,              // initial state is nonsignaled
-		TEXT("Global\\alarmRemovalEvent")  // object name
+		TEXT(alarmRemoval)  // object name
 	);
 	printEventCreationStatus(hAlarmRemovalEvent, "alarmRemovalEvent");
 
@@ -170,7 +172,7 @@ bool createEvents() {
 		NULL,               // default security attributes
 		TRUE,               // manual-reset event
 		FALSE,              // initial state is nonsignaled
-		TEXT("Global\\otimizationExhibitionEvent")  // object name
+		TEXT(otimizationExhibition)  // object name
 	);
 	printEventCreationStatus(hOtimizationExhibitionEvent, "otimizationExhibitionEvent");
 
@@ -178,7 +180,7 @@ bool createEvents() {
 		NULL,               // default security attributes
 		TRUE,               // manual-reset event
 		FALSE,              // initial state is nonsignaled
-		TEXT("Global\\processExhibitionEvent")  // object name
+		TEXT(processExhibition)  // object name
 	);
 	printEventCreationStatus(hProcessExhibitionEvent, "processExhibitionEvent");
 
@@ -186,7 +188,7 @@ bool createEvents() {
 		NULL,               // default security attributes
 		TRUE,               // manual-reset event
 		FALSE,              // initial state is nonsignaled
-		TEXT("Global\\alarmExhibitionEvent")  // object name
+		TEXT(alarmExhibition)  // object name
 	);
 	printEventCreationStatus(hAlarmExhibitionEvent, "alarmExhibitionEvent");
 
@@ -194,7 +196,7 @@ bool createEvents() {
 		NULL,               // default security attributes
 		FALSE,               // manual-reset event
 		FALSE,              // initial state is nonsignaled
-		TEXT("Global\\clearAlarmConsoleEvent")  // object name
+		TEXT(clearAlarmConsole)  // object name
 	);
 	printEventCreationStatus(hClearAlarmConsoleEvent, "clearAlarmConsoleEvent");
 
@@ -202,7 +204,7 @@ bool createEvents() {
 		NULL,               // default security attributes
 		TRUE,               // manual-reset event
 		FALSE,              // initial state is nonsignaled
-		TEXT("Global\\exitEvent")  // object name
+		TEXT(exitAll)  // object name
 	);
 	printEventCreationStatus(hExitEvent, "exitEvent");
 	
