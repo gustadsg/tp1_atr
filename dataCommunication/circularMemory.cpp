@@ -23,7 +23,9 @@ HANDLE hSemaphoreListFull;
 /*
 * Criação de handles de eventos e threads
 */
-HANDLE hThreadDataCommunication;
+HANDLE hThreadDataCommunicationAlarm;
+HANDLE hThreadDataCommunicationProcess;
+HANDLE hThreadDataCommunicationOtimization;
 HANDLE hThreadRemoveAlarms;
 HANDLE hThreadRemoveOtimizationData;
 HANDLE hThreadRemoveProcessData;
@@ -37,6 +39,11 @@ HANDLE hExitEvent;
 
 HANDLE hMutexPrint;
 
+HANDLE hTimerAlarm;
+HANDLE hTimerProcessData;
+HANDLE hTimerOtimizationData;
+
+
 /*
 * Variáveis globais
 */
@@ -48,10 +55,16 @@ long int numSeq = 0;
 * Constantes
 */
 constexpr int sizeMemory = 100;
+const char * timerAlarms = "timerAlarms";
+const char * timerProcessData = "timerProcessData";
+const char * timerOtimizationData = "timerOtimizationData";
+const int msMultFactor = 10000;
 
 bool createSynchronizationObjects();
 bool createThreads();
-unsigned __stdcall threadDataCommunication(void*);
+unsigned __stdcall threadDataCommunicationProcess(void*);
+unsigned __stdcall threadDataCommunicationAlarm(void*);
+unsigned __stdcall threadDataCommunicationOtimization(void*);
 unsigned __stdcall threadRemoveAlarms(void*);
 unsigned __stdcall threadRemoveProcessData(void*);
 unsigned __stdcall threadRemoveOtimizationData(void*);
@@ -60,6 +73,8 @@ void addMessageToMemory(string message);
 void removeMessageFromMemory(int typeToRemove);
 int getMessageType(string message);
 void printCircularMemory();
+bool createTimers();
+void printColorfulMessage(string message, int type);
 
 void LogWaitForSingleObject(HANDLE handle);
 void LogReleaseSemaphore(HANDLE handle);
@@ -74,13 +89,22 @@ int main()
         exit(1);
     }
 
+    bool timersCreated = createTimers();
+    if (!timersCreated) {
+        cout << "Erro na criação de timers" << endl;
+        exit(1);
+    }
+
     bool threadsCreated = createThreads();
     if (!threadsCreated) {
         cout << "Erro na criação de threads" << endl;
         exit(1);
     }
 
-    HANDLE threads[5] = { hThreadDataCommunication , hThreadRemoveAlarms , hThreadRemoveProcessData, hThreadRemoveOtimizationData, hThreadExit };
+    HANDLE cout_handle = GetStdHandle(STD_OUTPUT_HANDLE);
+    SetConsoleTextAttribute(cout_handle, FOREGROUND_INTENSITY);
+
+    HANDLE threads[5] = { hThreadDataCommunicationAlarm , hThreadRemoveAlarms , hThreadRemoveProcessData, hThreadRemoveOtimizationData, hThreadExit };
 
     WaitForMultipleObjects(5, threads, TRUE, INFINITE);
 
@@ -113,17 +137,45 @@ bool createSynchronizationObjects() {
 }
 
 bool createThreads() {
-    hThreadDataCommunication = (HANDLE)_beginthreadex(
+    hThreadDataCommunicationAlarm = (HANDLE)_beginthreadex(
         NULL,
         0,
-        threadDataCommunication,
+        threadDataCommunicationAlarm,
         NULL,
         0,
         NULL
     );
-    if (!hThreadDataCommunication) {
+    if (!hThreadDataCommunicationAlarm) {
         int errorCode = GetLastError();
         cout << "Erro ao criar thread de adição de alarmes. Erro ID: " << errorCode << endl;
+        return FALSE;
+    }
+    
+    hThreadDataCommunicationProcess = (HANDLE)_beginthreadex(
+        NULL,
+        0,
+        threadDataCommunicationProcess,
+        NULL,
+        0,
+        NULL
+    );
+    if (!hThreadDataCommunicationProcess) {
+        int errorCode = GetLastError();
+        cout << "Erro ao criar thread de adição de dados de processos. Erro ID: " << errorCode << endl;
+        return FALSE;
+    }
+
+    hThreadDataCommunicationOtimization = (HANDLE)_beginthreadex(
+        NULL,
+        0,
+        threadDataCommunicationOtimization,
+        NULL,
+        0,
+        NULL
+    );
+    if (!hThreadDataCommunicationOtimization) {
+        int errorCode = GetLastError();
+        cout << "Erro ao criar thread de adição de dados de otimização. Erro ID: " << errorCode << endl;
         return FALSE;
     }
 
@@ -186,7 +238,7 @@ bool createThreads() {
     return hThreadRemoveAlarms && hThreadRemoveOtimizationData && hThreadRemoveProcessData && hThreadExit;
 }
 
-unsigned __stdcall threadDataCommunication(void*) {
+unsigned __stdcall threadDataCommunicationProcess(void*) {
     cout << "Inicializando thread de adição de mensagens..." << endl;
     hDataCommunicationEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, dataCommunication);
     if (!hDataCommunicationEvent) {
@@ -198,19 +250,60 @@ unsigned __stdcall threadDataCommunication(void*) {
     while (true) {
         LogWaitForSingleObject(hDataCommunicationEvent);
 
-        string otimizationSystemMessage = messageGenerator.generateOtimizationSystemMessage(numSeq);
-        addMessageToMemory(otimizationSystemMessage);
-        cout << otimizationSystemMessage;
+        WaitForSingleObject(hTimerProcessData, INFINITE);
 
+        cout << "22" << endl;
         string scadaMessage = messageGenerator.generateSCADAMessage(numSeq);
         addMessageToMemory(scadaMessage);
-        cout << scadaMessage;
+        printColorfulMessage(scadaMessage, 22);
+    }
+}
+
+unsigned __stdcall threadDataCommunicationAlarm(void*) {
+    cout << "Inicializando thread de adição de mensagens..." << endl;
+    hDataCommunicationEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, dataCommunication);
+    if (!hDataCommunicationEvent) {
+        int errorCode = GetLastError();
+        cout << "Erro na abertura de evento de comunicação de dados. Erro ID: " << errorCode << endl;
+        exit(1);
+    }
+
+    while (true) {
+        LogWaitForSingleObject(hDataCommunicationEvent);
+
+        WaitForSingleObject(hTimerAlarm, INFINITE);
+        LARGE_INTEGER Preset;
+        int msToActivate = 1000 + rand() % 4000;
+        int timeToActivateInNsPackages = (msToActivate * msMultFactor);
+        Preset.QuadPart = timeToActivateInNsPackages;
+
+        bool timerSet = SetWaitableTimer(hTimerAlarm, &Preset, NULL, NULL, NULL, FALSE);
 
         string alarmMessage = messageGenerator.generateAlarmMessage(numSeq);
+        cout << "55" << endl;
         addMessageToMemory(alarmMessage);
-        cout << alarmMessage;
+        printColorfulMessage(alarmMessage, 55);
+    }
+}
 
-        Sleep(1000);
+unsigned __stdcall threadDataCommunicationOtimization(void*) {
+    cout << "Inicializando thread de adição de mensagens..." << endl;
+    hDataCommunicationEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, dataCommunication);
+    if (!hDataCommunicationEvent) {
+        int errorCode = GetLastError();
+        cout << "Erro na abertura de evento de comunicação de dados. Erro ID: " << errorCode << endl;
+        exit(1);
+    }
+
+    while (true) {
+        LogWaitForSingleObject(hDataCommunicationEvent);
+
+        WaitForSingleObject(hTimerAlarm, INFINITE);
+
+        string otimizationSystemMessage = messageGenerator.generateOtimizationSystemMessage(numSeq);
+        cout << "11" << endl;
+        addMessageToMemory(otimizationSystemMessage);
+        printColorfulMessage(otimizationSystemMessage, 11);
     }
 }
 
@@ -316,10 +409,58 @@ int getMessageType(string message) {
     return intType;
 }
 
+void printColorfulMessage(string message, int type){
+    WaitForSingleObject(hMutexPrint, INFINITE);
+    DWORD color;
+    if (type == 11) color = FOREGROUND_RED;
+    if (type == 22) color = FOREGROUND_GREEN;
+    if (type == 55) color = FOREGROUND_BLUE;
+
+    HANDLE cout_handle = GetStdHandle(STD_OUTPUT_HANDLE);
+    SetConsoleTextAttribute(cout_handle, color);
+    cout << message;
+    SetConsoleTextAttribute(cout_handle, FOREGROUND_INTENSITY);
+    ReleaseMutex(hMutexPrint);
+}
+
 void printCircularMemory() {
     for (int i = 0; i < circularMemory.size(); i++) {
         cout << circularMemory[i];
     }
+}
+
+bool createTimers() {
+    bool timerSet = FALSE;
+
+    // alarmes
+    hTimerAlarm = CreateWaitableTimer(NULL, FALSE, timerAlarms);
+    LARGE_INTEGER Preset;
+    int msToActivate = 5000;
+    int timeToActivateInNsPackages = (msToActivate * msMultFactor);
+    Preset.QuadPart = timeToActivateInNsPackages;
+
+    timerSet = SetWaitableTimer(hTimerAlarm, &Preset, NULL, NULL, NULL, FALSE);
+    if (!hTimerAlarm || !timerSet) return FALSE;
+
+    // dados de processo
+    hTimerProcessData = CreateWaitableTimer(NULL, FALSE, timerProcessData);
+    msToActivate = 5000;
+    timeToActivateInNsPackages = (msToActivate * msMultFactor);
+    Preset.QuadPart = timeToActivateInNsPackages;
+
+    timerSet = SetWaitableTimer(hTimerProcessData, &Preset, msToActivate, NULL, NULL, FALSE);
+    if (!hTimerProcessData || !timerSet) return FALSE;
+
+    // dados de otimização
+    hTimerOtimizationData = CreateWaitableTimer(NULL, FALSE, timerOtimizationData);
+    msToActivate = 5000;
+    timeToActivateInNsPackages = (msToActivate * msMultFactor);
+    Preset.QuadPart = timeToActivateInNsPackages;
+
+    timerSet = SetWaitableTimer(hTimerOtimizationData, &Preset, msToActivate, NULL, NULL, FALSE);
+    if (!hTimerOtimizationData || !timerSet) return FALSE;
+
+    return TRUE;
 }
 
 void LogWaitForSingleObject(HANDLE handle) {
