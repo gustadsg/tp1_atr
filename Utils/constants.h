@@ -30,4 +30,8 @@ const char* fileOtimization = "..\\dataOtimization\\data.txt";
 
 // semaforos 
 const char* hardDisksemaphore = "Global\\hardDiskSemaphore";
+
+// contantes numericas
+const int otimizationMsgSize = 40;
+const int maxFileRows = 200;
 #endif

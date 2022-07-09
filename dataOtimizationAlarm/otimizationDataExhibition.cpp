@@ -12,7 +12,6 @@ HANDLE hProcessDataThread;
 HANDLE hExitEvent;
 HANDLE hExitThread;
 HANDLE hFile;
-HANDLE hMailSlotReady;
 HANDLE hSemaphoreHardDisk;
 
 unsigned __stdcall threadOtimizationData(void*);
@@ -22,12 +21,6 @@ bool openSemaphores();
 int main()
 {
     cout << "Processo otimizationDataExhibition iniciado. Esperando por evento..." << endl;
-
-    hMailSlotReady = OpenEvent(EVENT_ALL_ACCESS, FALSE, mailOtimizationReady);
-    if (!hMailSlotReady) {
-        cout << "Falha em criação de evento de mailslot de dados de otimização" << endl;
-        exit(1);
-    }
 
     bool semaphoresOpened = openSemaphores();
     if (!semaphoresOpened) {
@@ -91,21 +84,10 @@ unsigned __stdcall threadOtimizationData(void*) {
     DWORD bytesRead;
     char msg[40];
     long currentPosition = 0L;
-    long lastPosition = 0L;
-
-    SetEvent(hMailSlotReady);
 
     while (true) {
         WaitForSingleObject(hAlarmExhibitionEvent, INFINITE);
         WaitForSingleObject(hSemaphoreHardDisk, INFINITE);
-
-        bool movedPointerWithSuccess = SetFilePointer(hFile, currentPosition, &lastPosition, NULL);
-        if (!movedPointerWithSuccess) {
-            int code = GetLastError();
-            cout << "Erro ao mover ponteiro de arquivo" << code << endl;
-        }
-
-        currentPosition += sizeof(msg);
 
         bool successRead = ReadFile(hFile, &msg, sizeof(msg), &bytesRead, NULL);
         if (!successRead) {
@@ -113,8 +95,12 @@ unsigned __stdcall threadOtimizationData(void*) {
             cout << "Falha na leitura de arquivo de disco de dados de otimização. Erro código: " << error << endl;
             exit(1);
         }
-
         cout << bytesRead << " bytes lidos. Msg: " << msg << endl;
+
+        currentPosition++;
+        if ((currentPosition % maxFileRows) == 0) {
+            SetFilePointer(hFile, 0, NULL, FILE_BEGIN);
+        }
     }
 }
 

@@ -56,6 +56,9 @@ HANDLE hSemaphoreHardDisk;
 vector<string> circularMemory;
 MessageGenerator messageGenerator = MessageGenerator();
 long int numSeq = 0;
+long int numSeqOtimization = 0;
+long int numSeqAlarm = 0;
+long int numSeqProcess = 0;
 
 /*
 * Constantes
@@ -273,9 +276,10 @@ unsigned __stdcall threadDataCommunicationProcess(void*) {
 
         WaitForSingleObject(hTimerProcessData, INFINITE);
 
-        string scadaMessage = messageGenerator.generateSCADAMessage(numSeq);
+        string scadaMessage = messageGenerator.generateSCADAMessage(numSeqProcess);
         addMessageToMemory(scadaMessage);
         printColorfulMessage(scadaMessage, 22);
+        numSeqProcess++;
     }
 }
 
@@ -293,9 +297,10 @@ unsigned __stdcall threadDataCommunicationAlarm(void*) {
 
         WaitForSingleObject(hTimerAlarm, INFINITE);
         
-        string alarmMessage = messageGenerator.generateAlarmMessage(numSeq);
+        string alarmMessage = messageGenerator.generateAlarmMessage(numSeqAlarm);
         addMessageToMemory(alarmMessage);
         printColorfulMessage(alarmMessage, 55);
+        numSeqAlarm++;
 
         LARGE_INTEGER Preset;
         int msToActivate = 1000 + rand() % 4000;
@@ -325,10 +330,11 @@ unsigned __stdcall threadDataCommunicationOtimization(void*) {
 
         WaitForSingleObject(hTimerOtimizationData, INFINITE);
 
-        string otimizationSystemMessage = messageGenerator.generateOtimizationSystemMessage(numSeq);
+        string otimizationSystemMessage = messageGenerator.generateOtimizationSystemMessage(numSeqOtimization);
         
         addMessageToMemory(otimizationSystemMessage);
         printColorfulMessage(otimizationSystemMessage, 11);
+        numSeqOtimization++;
 
         LARGE_INTEGER Preset;
         int msToActivate = 1000 + rand() % 4000;
@@ -456,18 +462,9 @@ void removeOtimizationMessageFromMemory() {
         int otimizationType = 11;
 
         if (typeOfMessage == otimizationType) {
-            char msg[40];
-            strcpy_s(msg, circularMemory[i].c_str());
-            msg[circularMemory[i].size()] = '\0';
+            char msg[otimizationMsgSize];
+            strcpy_s(msg, otimizationMsgSize, circularMemory[i].c_str());
             DWORD bytesWritten = 0;
-
-            bool movedPointerWithSuccess = SetFilePointer(hFileOtimization, currentPosition, &lastPosition, NULL);
-            if (!movedPointerWithSuccess) {
-                int code = GetLastError();
-                cout << "Erro ao mover ponteiro de arquivo" << code << endl;
-            }
-
-            currentPosition += sizeof(msg);
 
             bool success = WriteFile(hFileOtimization, &msg, sizeof(msg), &bytesWritten, NULL);
             if (!success) {
@@ -477,6 +474,10 @@ void removeOtimizationMessageFromMemory() {
             cout << bytesWritten << " bytes escritos em arquivo ou mailsot" << endl;
             cout << "Removendo mensagem do tipo " << typeOfMessage << ". Mensagem: " << msg << endl;
             circularMemory.erase(next(circularMemory.begin(), i));
+
+            if ((numSeqOtimization % maxFileRows) == 0) {
+                SetFilePointer(hFileOtimization, 0, NULL, FILE_BEGIN);
+            }
             LogReleaseSemaphore(hSemaphoreListFull);
             LogReleaseSemaphore(hSemaphoreHardDisk);
         }
@@ -551,12 +552,6 @@ bool createTimers() {
 }
 
 bool createMailSlotsFiles() {
-    HANDLE hOtmizationReady = OpenEvent(EVENT_ALL_ACCESS, FALSE, mailOtimizationReady);
-    if (!hOtmizationReady) {
-        cout << "Erro ao abrir evento de mailslot de dados de otimização" << endl;
-        return false;
-    }
-    WaitForSingleObject(hOtmizationReady, INFINITE);
     hFileOtimization = CreateFile(
         fileOtimization,
         GENERIC_WRITE | GENERIC_READ,
@@ -564,7 +559,8 @@ bool createMailSlotsFiles() {
         NULL,
         CREATE_ALWAYS,
         FILE_ATTRIBUTE_NORMAL,
-        NULL);
+        NULL
+    );
     if (!hFileOtimization) {
         int errorCode = GetLastError();
         cout << "Erro ao criar arquivo de disco de dados de otimização" << errorCode << endl;
