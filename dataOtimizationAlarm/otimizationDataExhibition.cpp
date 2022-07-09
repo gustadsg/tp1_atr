@@ -3,13 +3,16 @@
 #include <process.h> 
 
 #include "../Utils/constants.h"
+#include "../Utils/Message.h"
 
 using namespace std;
 
-HANDLE hOtimizationDataExhibitionEvent;
+HANDLE hAlarmExhibitionEvent;
 HANDLE hProcessDataThread;
 HANDLE hExitEvent;
 HANDLE hExitThread;
+HANDLE hMailslot;
+HANDLE hMailSlotReady;
 
 unsigned __stdcall threadOtimizationData(void*);
 unsigned __stdcall threadExit(void*);
@@ -18,8 +21,21 @@ int main()
 {
     cout << "Processo otimizationDataExhibition iniciado. Esperando por evento..." << endl;
 
-    hOtimizationDataExhibitionEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, otimizationExhibition);
-    if (hOtimizationDataExhibitionEvent == 0) {
+    hMailSlotReady = OpenEvent(EVENT_ALL_ACCESS, FALSE, mailOtimizationReady);
+    if (!hMailSlotReady) {
+        cout << "Falha em criação de evento de mailslot de dados de otimização" << endl;
+        exit(1);
+    }
+
+    hMailslot = CreateMailslot(mailOtimization, 0, MAILSLOT_WAIT_FOREVER, NULL);
+    if (hMailslot == INVALID_HANDLE_VALUE)
+    {
+        cout << "Falha em criação de mailslot" << endl;
+        exit(1);
+    }
+
+    hAlarmExhibitionEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, otimizationExhibition);
+    if (hAlarmExhibitionEvent == 0) {
         cout << "Falha em otimizationDataExhibition ..." << endl;
         exit(1);
     }
@@ -56,13 +72,20 @@ int main()
 }
 
 unsigned __stdcall threadOtimizationData(void*) {
-    while (true) {
-        WaitForSingleObject(hOtimizationDataExhibitionEvent, INFINITE);
-        cout << "Thread de exibição de otimização de dados desbloqueada" << endl;
-        // TODO: implementar comunicacao com processo gerador
+    DWORD bytesRead;
+    char msg[100];
 
-        // TODO: remover sleep para nao imprimir o tempo todo quando for implementada a funcionalidade
-        Sleep(2000);
+    SetEvent(hMailSlotReady);
+
+    while (true) {
+        WaitForSingleObject(hAlarmExhibitionEvent, INFINITE);
+        bool successRead = ReadFile(hMailslot, &msg, 100, &bytesRead, NULL);
+        if (!successRead) {
+            cout << "Falha na leitura de mailsot de dados de otimização" << endl;
+            exit(1);
+        }
+
+        cout << bytesRead << " bytes lidos. Msg: " << msg << endl;
     }
 }
 

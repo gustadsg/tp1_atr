@@ -30,6 +30,10 @@ HANDLE hAlarmExhibitionEvent;
 HANDLE hClearAlarmConsoleEvent;
 HANDLE hExitEvent;
 
+HANDLE hMailSlotOtimizationReady;
+HANDLE hMailSlotAlarmReady;
+HANDLE hMailSlotProcessReady;
+
 /*
 * Criação de handles para lidar com thread de teclado
 */
@@ -46,7 +50,6 @@ bool otimizationRemovalActivated = TRUE;
 bool otimizationExhibitionActivated = TRUE;
 bool processExhibitionActivated = TRUE;
 bool alarmExhibitionActivated = TRUE;
-bool clearAlarmConsoleActivated = FALSE;
 
 
 using namespace std;
@@ -207,6 +210,15 @@ bool createEvents() {
 		TEXT(exitAll)  // object name
 	);
 	printEventCreationStatus(hExitEvent, "exitEvent");
+
+	hMailSlotOtimizationReady = CreateEvent(NULL, TRUE, FALSE, mailOtimizationReady);
+	printEventCreationStatus(hMailSlotOtimizationReady, "mailSlotOtimizationReadyEvent");
+
+	hMailSlotAlarmReady = CreateEvent(NULL, TRUE, FALSE, mailAlarmReady);
+	printEventCreationStatus(hMailSlotAlarmReady, "mailSlotAlarmReadyEvent");
+
+	hMailSlotProcessReady = CreateEvent(NULL, TRUE, FALSE, mailProcessReady);
+	printEventCreationStatus(hMailSlotProcessReady, "mailSlotProcessReadyEvent");
 	
 	bool creationSucceeded = hDataCommunicationEvent && hOtimizationRemovalEvent && hProcessRemovalEvent && hAlarmRemovalEvent
 		&& hOtimizationExhibitionEvent && hProcessExhibitionEvent && hAlarmExhibitionEvent && hClearAlarmConsoleEvent && hExitEvent;
@@ -335,7 +347,8 @@ void fireAlarmByCharacter(char commandId) {
 		toggleEvent(hAlarmExhibitionEvent, alarmExhibitionActivated, "alarmExhibitionEvent");
 		break;
 	case 'z':
-		toggleEvent(hClearAlarmConsoleEvent, clearAlarmConsoleActivated, "clearAlarmConsoleEvent");
+		PulseEvent(hClearAlarmConsoleEvent);
+		printPulse("clearAlarmConsoleEvent");
 		break;
 	case ESC:
 	default:

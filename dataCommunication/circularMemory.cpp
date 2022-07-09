@@ -1,6 +1,6 @@
 // circularMemoryHandler.cpp : Este arquivo contém a função 'main'. A execução do programa começa e termina ali.
 //
-
+#define _CRT_SECURE_NO_WARNINGS_GLOBALS
 #include <iostream>
 #include <vector>
 #include <string>
@@ -10,6 +10,7 @@
 #include <process.h>    // _beginthreadex() e _endthreadex()  
 
 #include "../Utils/constants.h"
+#include "../Utils/Message.h"
 #include "MessageGenerator.h"
 
 using namespace std;
@@ -43,6 +44,10 @@ HANDLE hTimerAlarm;
 HANDLE hTimerProcessData;
 HANDLE hTimerOtimizationData;
 
+HANDLE hMailOtimization;
+HANDLE hMailProcess;
+HANDLE hMailAlarm;
+
 
 /*
 * Variáveis globais
@@ -70,13 +75,14 @@ unsigned __stdcall threadRemoveProcessData(void*);
 unsigned __stdcall threadRemoveOtimizationData(void*);
 unsigned __stdcall threadExit(void*);
 void addMessageToMemory(string message);
-void removeMessageFromMemory(int typeToRemove);
+void removeMessageFromMemory(int typeToRemove, HANDLE mailSlot);
 int getMessageType(string message);
 void printCircularMemory();
 bool createTimers();
 void printColorfulMessage(string message, int type);
+bool createMailSlotsFiles();
 
-void LogWaitForSingleObject(HANDLE handle);
+void InfiniteWaitForSingleObject(HANDLE handle);
 void LogReleaseSemaphore(HANDLE handle);
 
 int main()
@@ -92,6 +98,12 @@ int main()
     bool timersCreated = createTimers();
     if (!timersCreated) {
         cout << "Erro na criação de timers" << endl;
+        exit(1);
+    }
+
+    bool timeSlotsFilesCreated = createMailSlotsFiles();
+    if (!timeSlotsFilesCreated) {
+        cout << "Erro na criação de timeSlotsFiles" << endl;
         exit(1);
     }
 
@@ -248,11 +260,10 @@ unsigned __stdcall threadDataCommunicationProcess(void*) {
     }
 
     while (true) {
-        LogWaitForSingleObject(hDataCommunicationEvent);
+        InfiniteWaitForSingleObject(hDataCommunicationEvent);
 
         WaitForSingleObject(hTimerProcessData, INFINITE);
 
-        cout << "22" << endl;
         string scadaMessage = messageGenerator.generateSCADAMessage(numSeq);
         addMessageToMemory(scadaMessage);
         printColorfulMessage(scadaMessage, 22);
@@ -269,20 +280,25 @@ unsigned __stdcall threadDataCommunicationAlarm(void*) {
     }
 
     while (true) {
-        LogWaitForSingleObject(hDataCommunicationEvent);
+        InfiniteWaitForSingleObject(hDataCommunicationEvent);
 
         WaitForSingleObject(hTimerAlarm, INFINITE);
-        LARGE_INTEGER Preset;
-        int msToActivate = 1000 + rand() % 4000;
-        int timeToActivateInNsPackages = (msToActivate * msMultFactor);
-        Preset.QuadPart = timeToActivateInNsPackages;
-
-        bool timerSet = SetWaitableTimer(hTimerAlarm, &Preset, NULL, NULL, NULL, FALSE);
-
+        
         string alarmMessage = messageGenerator.generateAlarmMessage(numSeq);
-        cout << "55" << endl;
         addMessageToMemory(alarmMessage);
         printColorfulMessage(alarmMessage, 55);
+
+        LARGE_INTEGER Preset;
+        int msToActivate = 1000 + rand() % 4000;
+        int timeToActivateInNsPackages = -(msToActivate * msMultFactor);
+        Preset.QuadPart = timeToActivateInNsPackages;
+
+        bool timerSet = SetWaitableTimer(hTimerAlarm, &Preset, msToActivate, NULL, NULL, FALSE);
+        if (!timerSet) {
+            int errorCode = GetLastError();
+            cout << "Erro ao resetar timer de alarme. Erro código" << errorCode << endl;
+            exit(1);
+        }
     }
 }
 
@@ -296,14 +312,26 @@ unsigned __stdcall threadDataCommunicationOtimization(void*) {
     }
 
     while (true) {
-        LogWaitForSingleObject(hDataCommunicationEvent);
+        InfiniteWaitForSingleObject(hDataCommunicationEvent);
 
-        WaitForSingleObject(hTimerAlarm, INFINITE);
+        WaitForSingleObject(hTimerOtimizationData, INFINITE);
 
         string otimizationSystemMessage = messageGenerator.generateOtimizationSystemMessage(numSeq);
-        cout << "11" << endl;
+        
         addMessageToMemory(otimizationSystemMessage);
         printColorfulMessage(otimizationSystemMessage, 11);
+
+        LARGE_INTEGER Preset;
+        int msToActivate = 1000 + rand() % 4000;
+        int timeToActivateInNsPackages = - (msToActivate * msMultFactor);
+        Preset.QuadPart = timeToActivateInNsPackages;
+
+        bool timerSet = SetWaitableTimer(hTimerOtimizationData, &Preset, msToActivate, NULL, NULL, FALSE);
+        if (!timerSet) {
+            int errorCode = GetLastError();
+            cout << "Erro ao resetar timer de alarme. Erro código" << errorCode << endl;
+            exit(1);
+        }
     }
 }
 
@@ -317,9 +345,9 @@ unsigned __stdcall threadRemoveAlarms(void*) {
     }
 
     while (true) {
-        LogWaitForSingleObject(hAlarmRemovalEvent);
+        InfiniteWaitForSingleObject(hAlarmRemovalEvent);
         int codeAlarms = 55;
-        removeMessageFromMemory(codeAlarms);
+        removeMessageFromMemory(codeAlarms, hMailAlarm);
     }
 }
 
@@ -333,9 +361,9 @@ unsigned __stdcall threadRemoveProcessData(void*) {
     }
 
     while (true) {
-        LogWaitForSingleObject(hProcessDataRemovalEvent);
+        InfiniteWaitForSingleObject(hProcessDataRemovalEvent);
         int codeProcessData = 22;
-        removeMessageFromMemory(codeProcessData);
+        removeMessageFromMemory(codeProcessData, hMailProcess);
     }
 }
 
@@ -349,9 +377,9 @@ unsigned __stdcall threadRemoveOtimizationData(void*) {
     }
 
     while (true) {
-        LogWaitForSingleObject(hOtimizationDataRemovalEvent);
+        InfiniteWaitForSingleObject(hOtimizationDataRemovalEvent);
         int codeOtimizationData = 11;
-        removeMessageFromMemory(codeOtimizationData);
+        removeMessageFromMemory(codeOtimizationData, hMailOtimization);
     }
 }
 
@@ -362,19 +390,19 @@ unsigned __stdcall threadExit(void*) {
 }
 
 void addMessageToMemory(string message) {
-    LogWaitForSingleObject(hCircularMemoryMutex);
+    InfiniteWaitForSingleObject(hCircularMemoryMutex);
     bool isFull = !(circularMemory.size() < sizeMemory);
     if (isFull) {
         cout << "A memória circular está cheia. Bloqueando thread..." << endl;
         ReleaseMutex(hCircularMemoryMutex);
 
-        LogWaitForSingleObject(hSemaphoreListFull); // Espera o semaforo encher novamente. Efeito colateral: consome uma posicao sem adicionar conteudo
+        InfiniteWaitForSingleObject(hSemaphoreListFull); // Espera o semaforo encher novamente. Efeito colateral: consome uma posicao sem adicionar conteudo
         LogReleaseSemaphore(hSemaphoreListFull); // libera a posicao pois nao adicionou conteudo
         cout << "Espaço liberado na memória circular. Desbloqueando thread..." << endl;
     }
     else {
         cout << "Conquistando semaforo de memoria circular" << endl;
-        LogWaitForSingleObject(hSemaphoreListFull);
+        InfiniteWaitForSingleObject(hSemaphoreListFull);
         circularMemory.push_back(message);
         numSeq++;
         cout << "Mensagem adicionada à memória. Contagem atual: " << circularMemory.size() << endl;
@@ -382,14 +410,25 @@ void addMessageToMemory(string message) {
     }
 }
 
-void removeMessageFromMemory(int typeToRemove) {
-    LogWaitForSingleObject(hCircularMemoryMutex);
+void removeMessageFromMemory(int typeToRemove, HANDLE hMailSlot) {
+    InfiniteWaitForSingleObject(hCircularMemoryMutex);
 
     for (int i = 0; i < circularMemory.size(); i++) {
         int typeOfMessage = getMessageType(circularMemory[i]);
 
         if (typeOfMessage == typeToRemove) {
-            cout << "Removendo mensagem do tipo " << typeOfMessage << ". Mensagem: " << circularMemory[i] << endl;
+            char msg[100];
+            strcpy_s(msg, circularMemory[i].c_str());
+            msg[circularMemory[i].size()] = '\0';
+            DWORD bytesSent = 0;
+    
+            bool success = WriteFile(hMailSlot, &msg, sizeof(msg), &bytesSent, NULL);
+            if (!success) {
+                int error = GetLastError();
+                cout << "Erro ao escrever em mailSlot. Erro código: " << error << endl;
+            }
+            cout << bytesSent << "Enviados para mailsot" << endl;
+            cout << "Removendo mensagem do tipo " << typeOfMessage << ". Mensagem: " << msg << endl;
             circularMemory.erase(next(circularMemory.begin(), i));
             LogReleaseSemaphore(hSemaphoreListFull);
         }
@@ -411,7 +450,7 @@ int getMessageType(string message) {
 
 void printColorfulMessage(string message, int type){
     WaitForSingleObject(hMutexPrint, INFINITE);
-    DWORD color;
+    DWORD color = FOREGROUND_INTENSITY;
     if (type == 11) color = FOREGROUND_RED;
     if (type == 22) color = FOREGROUND_GREEN;
     if (type == 55) color = FOREGROUND_BLUE;
@@ -435,16 +474,16 @@ bool createTimers() {
     // alarmes
     hTimerAlarm = CreateWaitableTimer(NULL, FALSE, timerAlarms);
     LARGE_INTEGER Preset;
-    int msToActivate = 5000;
+    int msToActivate = 1000 + rand() % 4000;
     int timeToActivateInNsPackages = (msToActivate * msMultFactor);
     Preset.QuadPart = timeToActivateInNsPackages;
 
-    timerSet = SetWaitableTimer(hTimerAlarm, &Preset, NULL, NULL, NULL, FALSE);
+    timerSet = SetWaitableTimer(hTimerAlarm, &Preset, msToActivate, NULL, NULL, FALSE);
     if (!hTimerAlarm || !timerSet) return FALSE;
 
     // dados de processo
     hTimerProcessData = CreateWaitableTimer(NULL, FALSE, timerProcessData);
-    msToActivate = 5000;
+    msToActivate = 500;
     timeToActivateInNsPackages = (msToActivate * msMultFactor);
     Preset.QuadPart = timeToActivateInNsPackages;
 
@@ -453,7 +492,7 @@ bool createTimers() {
 
     // dados de otimização
     hTimerOtimizationData = CreateWaitableTimer(NULL, FALSE, timerOtimizationData);
-    msToActivate = 5000;
+    msToActivate = 1000 + rand() % 4000;
     timeToActivateInNsPackages = (msToActivate * msMultFactor);
     Preset.QuadPart = timeToActivateInNsPackages;
 
@@ -463,13 +502,75 @@ bool createTimers() {
     return TRUE;
 }
 
-void LogWaitForSingleObject(HANDLE handle) {
-    int status = 0;
+bool createMailSlotsFiles() {
+    HANDLE hOtmizationReady = OpenEvent(EVENT_ALL_ACCESS, FALSE, mailOtimizationReady);
+    if (!hOtmizationReady) {
+        cout << "Erro ao abrir evento de mailslot de dados de otimização" << endl;
+        return false;
+    }
+    WaitForSingleObject(hOtmizationReady, INFINITE);
+    hMailOtimization = CreateFile(
+        mailOtimization,
+        GENERIC_WRITE,
+        FILE_SHARE_READ,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL);
+    if (!hMailOtimization) {
+        int errorCode = GetLastError();
+        cout << "Erro ao criar arquivo a partir de mailSlot mailOtimization" << errorCode << endl;
+    }
+    cout << "Criado arquivo de leitura de dados de otimização" << endl;
+    
+    HANDLE hProcessReady = OpenEvent(EVENT_ALL_ACCESS, FALSE, mailProcessReady);
+    if (!hProcessReady) {
+        cout << "Erro ao abrir evento de mailslot de dados de processo" << endl;
+        return false;
+    }
+    WaitForSingleObject(hProcessReady, INFINITE);
+    hMailProcess= CreateFile(
+        mailProcess,
+        GENERIC_WRITE,
+        FILE_SHARE_READ,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL);
+    if (!hMailProcess) {
+        int errorCode = GetLastError();
+        cout << "Erro ao criar arquivo a partir de mailSlot mailProcess" << errorCode << endl;
+    }
+    cout << "Criado arquivo de leitura de dados de processo" << endl;
+    
+    HANDLE hAlarmReady = OpenEvent(EVENT_ALL_ACCESS, FALSE, mailAlarmReady);
+    if (!hAlarmReady) {
+        cout << "Erro ao abrir evento de mailslot de alarmes" << endl;
+        return false;
+    }
+    WaitForSingleObject(hAlarmReady, INFINITE);
+    hMailAlarm = CreateFile(
+        mailAlarm,
+        GENERIC_WRITE,
+        FILE_SHARE_READ,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL);
+    if (!hMailAlarm) {
+        int errorCode = GetLastError();
+        cout << "Erro ao criar arquivo a partir de mailSlot mailAlarm" << errorCode << endl;
+    }
+    cout << "Criado arquivo de leitura de alarmes" << endl;
+    return hMailOtimization && hMailAlarm && hMailProcess;
+}
+
+void InfiniteWaitForSingleObject(HANDLE handle) {
     WaitForSingleObject(handle, INFINITE);
 }
 
 void LogReleaseSemaphore(HANDLE handle) {
-    LogWaitForSingleObject(hMutexPrint);
+    InfiniteWaitForSingleObject(hMutexPrint);
     int status = 0;
     LONG prevVal = 0;
     status = ReleaseSemaphore(handle, 1, &prevVal);

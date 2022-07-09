@@ -12,6 +12,8 @@ HANDLE hProcessDataExhibitionEvent;
 HANDLE hProcessDataThread;
 HANDLE hExitEvent;
 HANDLE hExitThread;
+HANDLE hMailSlotReady;
+HANDLE hMailslot;
 
 unsigned __stdcall threadProcessData(void*);
 unsigned __stdcall threadExit(void*);
@@ -19,6 +21,19 @@ unsigned __stdcall threadExit(void*);
 int main()
 {
     cout << "Processo processDataExhibition iniciado. Esperando por evento..." << endl;
+
+    hMailslot = CreateMailslot(mailProcess, 0, MAILSLOT_WAIT_FOREVER, NULL);
+    if (hMailslot == INVALID_HANDLE_VALUE)
+    {
+        cout << "Falha em criação de mailslot" << endl;
+        exit(1);
+    }
+
+    hMailSlotReady = OpenEvent(EVENT_ALL_ACCESS, FALSE, mailProcessReady);
+    if (!hMailSlotReady) {
+        cout << "Falha em criação de evento de mailslot de dados de otimização" << endl;
+        exit(1);
+    }
 
     hProcessDataExhibitionEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, processExhibition);
     if (hProcessDataExhibitionEvent == 0) {
@@ -58,13 +73,20 @@ int main()
 }
 
 unsigned __stdcall threadProcessData(void*) {
+    DWORD bytesRead;
+    char msg[100];
+
+    SetEvent(hMailSlotReady);
+
     while (true) {
         WaitForSingleObject(hProcessDataExhibitionEvent, INFINITE);
-        cout << "Thread de exibição de processamento de dados desbloqueada" << endl;
-        // TODO: implementar comunicacao com processo gerador
+        bool successRead = ReadFile(hMailslot, &msg, 100, &bytesRead, NULL);
+        if (!successRead) {
+            cout << "Falha na leitura de mailsot de dados de otimização" << endl;
+            exit(1);
+        }
 
-        // TODO: remover sleep para nao imprimir o tempo todo quando for implementada a funcionalidade
-        Sleep(2000);
+        cout << bytesRead << " bytes lidos. Msg: " << msg << endl;
     }
 }
 
