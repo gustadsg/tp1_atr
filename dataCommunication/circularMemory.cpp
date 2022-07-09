@@ -44,10 +44,11 @@ HANDLE hTimerAlarm;
 HANDLE hTimerProcessData;
 HANDLE hTimerOtimizationData;
 
-HANDLE hMailOtimization;
+HANDLE hFileOtimization;
 HANDLE hMailProcess;
 HANDLE hMailAlarm;
 
+HANDLE hSemaphoreHardDisk;
 
 /*
 * Variáveis globais
@@ -76,11 +77,13 @@ unsigned __stdcall threadRemoveOtimizationData(void*);
 unsigned __stdcall threadExit(void*);
 void addMessageToMemory(string message);
 void removeMessageFromMemory(int typeToRemove, HANDLE mailSlot);
+void removeOtimizationMessageFromMemory();
 int getMessageType(string message);
 void printCircularMemory();
 bool createTimers();
 void printColorfulMessage(string message, int type);
 bool createMailSlotsFiles();
+bool openSemaphores();
 
 void InfiniteWaitForSingleObject(HANDLE handle);
 void LogReleaseSemaphore(HANDLE handle);
@@ -110,6 +113,12 @@ int main()
     bool threadsCreated = createThreads();
     if (!threadsCreated) {
         cout << "Erro na criação de threads" << endl;
+        exit(1);
+    }
+
+    bool semaphoresOpened = openSemaphores();
+    if (!threadsCreated) {
+        cout << "Erro na criação de semáforos" << endl;
         exit(1);
     }
 
@@ -379,7 +388,8 @@ unsigned __stdcall threadRemoveOtimizationData(void*) {
     while (true) {
         InfiniteWaitForSingleObject(hOtimizationDataRemovalEvent);
         int codeOtimizationData = 11;
-        removeMessageFromMemory(codeOtimizationData, hMailOtimization);
+        removeOtimizationMessageFromMemory();
+        
     }
 }
 
@@ -410,7 +420,7 @@ void addMessageToMemory(string message) {
     }
 }
 
-void removeMessageFromMemory(int typeToRemove, HANDLE hMailSlot) {
+void removeMessageFromMemory(int typeToRemove, HANDLE hFileDescriptor) {
     InfiniteWaitForSingleObject(hCircularMemoryMutex);
 
     for (int i = 0; i < circularMemory.size(); i++) {
@@ -420,17 +430,55 @@ void removeMessageFromMemory(int typeToRemove, HANDLE hMailSlot) {
             char msg[100];
             strcpy_s(msg, circularMemory[i].c_str());
             msg[circularMemory[i].size()] = '\0';
-            DWORD bytesSent = 0;
+            DWORD bytesWritten = 0;
     
-            bool success = WriteFile(hMailSlot, &msg, sizeof(msg), &bytesSent, NULL);
+            bool success = WriteFile(hFileDescriptor, &msg, sizeof(msg), &bytesWritten, NULL);
             if (!success) {
                 int error = GetLastError();
-                cout << "Erro ao escrever em mailSlot. Erro código: " << error << endl;
+                cout << "Erro ao escrever em mailSlot ou arquivo. Erro código: " << error << endl;
             }
-            cout << bytesSent << "Enviados para mailsot" << endl;
+            cout << bytesWritten << " bytes escritos em arquivo ou mailsot" << endl;
             cout << "Removendo mensagem do tipo " << typeOfMessage << ". Mensagem: " << msg << endl;
             circularMemory.erase(next(circularMemory.begin(), i));
             LogReleaseSemaphore(hSemaphoreListFull);
+        }
+    }
+    ReleaseMutex(hCircularMemoryMutex);
+}
+
+void removeOtimizationMessageFromMemory() {
+    InfiniteWaitForSingleObject(hCircularMemoryMutex);
+    long currentPosition = 0L;
+    long lastPosition = 0L;
+
+    for (int i = 0; i < circularMemory.size(); i++) {
+        int typeOfMessage = getMessageType(circularMemory[i]);
+        int otimizationType = 11;
+
+        if (typeOfMessage == otimizationType) {
+            char msg[40];
+            strcpy_s(msg, circularMemory[i].c_str());
+            msg[circularMemory[i].size()] = '\0';
+            DWORD bytesWritten = 0;
+
+            bool movedPointerWithSuccess = SetFilePointer(hFileOtimization, currentPosition, &lastPosition, NULL);
+            if (!movedPointerWithSuccess) {
+                int code = GetLastError();
+                cout << "Erro ao mover ponteiro de arquivo" << code << endl;
+            }
+
+            currentPosition += sizeof(msg);
+
+            bool success = WriteFile(hFileOtimization, &msg, sizeof(msg), &bytesWritten, NULL);
+            if (!success) {
+                int error = GetLastError();
+                cout << "Erro ao escrever em mailSlot ou arquivo. Erro código: " << error << endl;
+            }
+            cout << bytesWritten << " bytes escritos em arquivo ou mailsot" << endl;
+            cout << "Removendo mensagem do tipo " << typeOfMessage << ". Mensagem: " << msg << endl;
+            circularMemory.erase(next(circularMemory.begin(), i));
+            LogReleaseSemaphore(hSemaphoreListFull);
+            LogReleaseSemaphore(hSemaphoreHardDisk);
         }
     }
     ReleaseMutex(hCircularMemoryMutex);
@@ -509,17 +557,17 @@ bool createMailSlotsFiles() {
         return false;
     }
     WaitForSingleObject(hOtmizationReady, INFINITE);
-    hMailOtimization = CreateFile(
-        mailOtimization,
-        GENERIC_WRITE,
-        FILE_SHARE_READ,
+    hFileOtimization = CreateFile(
+        fileOtimization,
+        GENERIC_WRITE | GENERIC_READ,
+        FILE_SHARE_WRITE | FILE_SHARE_READ,
         NULL,
-        OPEN_EXISTING,
+        CREATE_ALWAYS,
         FILE_ATTRIBUTE_NORMAL,
         NULL);
-    if (!hMailOtimization) {
+    if (!hFileOtimization) {
         int errorCode = GetLastError();
-        cout << "Erro ao criar arquivo a partir de mailSlot mailOtimization" << errorCode << endl;
+        cout << "Erro ao criar arquivo de disco de dados de otimização" << errorCode << endl;
     }
     cout << "Criado arquivo de leitura de dados de otimização" << endl;
     
@@ -562,7 +610,12 @@ bool createMailSlotsFiles() {
         cout << "Erro ao criar arquivo a partir de mailSlot mailAlarm" << errorCode << endl;
     }
     cout << "Criado arquivo de leitura de alarmes" << endl;
-    return hMailOtimization && hMailAlarm && hMailProcess;
+    return hFileOtimization && hMailAlarm && hMailProcess;
+}
+
+bool openSemaphores() {
+    hSemaphoreHardDisk = OpenSemaphore(SEMAPHORE_ALL_ACCESS, FALSE, hardDisksemaphore);
+    return hSemaphoreHardDisk;
 }
 
 void InfiniteWaitForSingleObject(HANDLE handle) {

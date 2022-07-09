@@ -13,7 +13,7 @@ HANDLE hAlarmThread;
 HANDLE hExitEvent;
 HANDLE hExitThread;
 HANDLE hClearConsoleThread;
-HANDLE hMailslot;
+HANDLE hFile;
 HANDLE hMailSlotReady;
 HANDLE hClearConsole;
 
@@ -26,8 +26,8 @@ int main()
 {
     cout << "Processo alarmExhibition iniciado. Esperando por evento..." << endl;
 
-    hMailslot = CreateMailslot(mailAlarm, 0, MAILSLOT_WAIT_FOREVER, NULL);
-    if (hMailslot == INVALID_HANDLE_VALUE)
+    hFile = CreateMailslot(mailAlarm, 0, MAILSLOT_WAIT_FOREVER, NULL);
+    if (hFile == INVALID_HANDLE_VALUE)
     {
         cout << "Falha em criação de mailslot" << endl;
         exit(1);
@@ -98,7 +98,7 @@ unsigned __stdcall threadAlarms(void *) {
 
     while (true) {
         WaitForSingleObject(hAlarmExhibitionEvent, INFINITE);
-        bool successRead = ReadFile(hMailslot, &msg, 100, &bytesRead, NULL);
+        bool successRead = ReadFile(hFile, &msg, 100, &bytesRead, NULL);
         if (!successRead) {
             cout << "Falha na leitura de mailsot de dados de otimização" << endl;
             exit(1);

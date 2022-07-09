@@ -16,7 +16,6 @@ const char* clearAlarmConsole = "Global\\clearAlarmConsoleEvent";
 const char* exitAll = "Global\\exitEvent";
 
 // mailslots
-const char* mailOtimization = "\\\\.\\mailslot\\otimizationData";
 const char* mailProcess = "\\\\.\\mailslot\\processData";
 const char* mailAlarm = "\\\\.\\mailslot\\alarm";
 
@@ -25,4 +24,10 @@ const char* mailOtimizationReady = "Global\\otimizationMailslotEvent";
 const char* mailAlarmReady = "Global\\alarmMailslotEvent";
 const char* mailProcessReady = "Global\\processMailslotEvent";
 
+// arquivos
+const char* dirOtimization = "..\\dataOtimization";
+const char* fileOtimization = "..\\dataOtimization\\data.txt";
+
+// semaforos 
+const char* hardDisksemaphore = "Global\\hardDiskSemaphore";
 #endif

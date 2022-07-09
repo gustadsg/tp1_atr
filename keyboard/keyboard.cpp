@@ -34,6 +34,8 @@ HANDLE hMailSlotOtimizationReady;
 HANDLE hMailSlotAlarmReady;
 HANDLE hMailSlotProcessReady;
 
+HANDLE hSemaphoreHardDisk;
+
 /*
 * Criação de handles para lidar com thread de teclado
 */
@@ -65,6 +67,7 @@ bool createThreads();
 void toggleEvent(HANDLE& eventHandle, bool& currentState, string eventName);
 void SetAllEvents();
 void closeAllHandles();
+bool createSemaphores();
 
 int main()
 {
@@ -112,7 +115,12 @@ bool setup() {
 		cout << "Falha ao criar threads" << endl;
 	}
 
-	bool setupSucceeded = eventsCreated && processesCreated && threadsCreated;
+	bool semaphoresCreated = createSemaphores();
+	if (!semaphoresCreated) {
+		cout << "Falha ao criar semáforos" << endl;
+	}
+
+	bool setupSucceeded = eventsCreated && processesCreated && threadsCreated && semaphoresCreated;
 	return setupSucceeded;
 }
 
@@ -417,4 +425,9 @@ void SetAllEvents() {
 	for (unsigned i = 0; i < allHandles.size(); i++) {
 		SetEvent(allHandles[i]);
 	}
+}
+
+bool createSemaphores() {
+	hSemaphoreHardDisk = CreateSemaphore(NULL, 0, 200, hardDisksemaphore);
+	return hSemaphoreHardDisk;
 }

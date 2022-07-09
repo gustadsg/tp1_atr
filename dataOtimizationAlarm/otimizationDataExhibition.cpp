@@ -11,11 +11,13 @@ HANDLE hAlarmExhibitionEvent;
 HANDLE hProcessDataThread;
 HANDLE hExitEvent;
 HANDLE hExitThread;
-HANDLE hMailslot;
+HANDLE hFile;
 HANDLE hMailSlotReady;
+HANDLE hSemaphoreHardDisk;
 
 unsigned __stdcall threadOtimizationData(void*);
 unsigned __stdcall threadExit(void*);
+bool openSemaphores();
 
 int main()
 {
@@ -27,10 +29,9 @@ int main()
         exit(1);
     }
 
-    hMailslot = CreateMailslot(mailOtimization, 0, MAILSLOT_WAIT_FOREVER, NULL);
-    if (hMailslot == INVALID_HANDLE_VALUE)
-    {
-        cout << "Falha em criação de mailslot" << endl;
+    bool semaphoresOpened = openSemaphores();
+    if (!semaphoresOpened) {
+        cout << "Erro ao abrir semáforos" << endl;
         exit(1);
     }
 
@@ -66,6 +67,21 @@ int main()
         exit(1);
     }
 
+    hFile = CreateFile(
+        fileOtimization,
+        GENERIC_WRITE | GENERIC_READ ,
+        FILE_SHARE_WRITE | FILE_SHARE_READ,
+        NULL,
+        OPEN_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL
+    );
+    if (!hFile)
+    {
+        cout << "Falha em criação de arquivo em disco otimização" << endl;
+        exit(1);
+    }
+
     HANDLE handles[2] = { hProcessDataThread, hExitThread };
 
     WaitForMultipleObjects(2, handles, TRUE, INFINITE);
@@ -73,20 +89,38 @@ int main()
 
 unsigned __stdcall threadOtimizationData(void*) {
     DWORD bytesRead;
-    char msg[100];
+    char msg[40];
+    long currentPosition = 0L;
+    long lastPosition = 0L;
 
     SetEvent(hMailSlotReady);
 
     while (true) {
         WaitForSingleObject(hAlarmExhibitionEvent, INFINITE);
-        bool successRead = ReadFile(hMailslot, &msg, 100, &bytesRead, NULL);
+        WaitForSingleObject(hSemaphoreHardDisk, INFINITE);
+
+        bool movedPointerWithSuccess = SetFilePointer(hFile, currentPosition, &lastPosition, NULL);
+        if (!movedPointerWithSuccess) {
+            int code = GetLastError();
+            cout << "Erro ao mover ponteiro de arquivo" << code << endl;
+        }
+
+        currentPosition += sizeof(msg);
+
+        bool successRead = ReadFile(hFile, &msg, sizeof(msg), &bytesRead, NULL);
         if (!successRead) {
-            cout << "Falha na leitura de mailsot de dados de otimização" << endl;
+            int error = GetLastError();
+            cout << "Falha na leitura de arquivo de disco de dados de otimização. Erro código: " << error << endl;
             exit(1);
         }
 
         cout << bytesRead << " bytes lidos. Msg: " << msg << endl;
     }
+}
+
+bool openSemaphores() {
+    hSemaphoreHardDisk = OpenSemaphore(SEMAPHORE_ALL_ACCESS, FALSE, hardDisksemaphore);
+    return hSemaphoreHardDisk;
 }
 
 unsigned __stdcall threadExit(void*) {
