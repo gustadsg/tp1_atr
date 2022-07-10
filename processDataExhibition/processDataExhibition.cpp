@@ -3,6 +3,7 @@
 #include <iostream>
 #include <Windows.h>
 #include <process.h> 
+#include <sstream>
 
 #include "../Utils/constants.h"
 
@@ -17,6 +18,7 @@ HANDLE hFile;
 
 unsigned __stdcall threadProcessData(void*);
 unsigned __stdcall threadExit(void*);
+string formatToExhibition(string message);
 
 int main()
 {
@@ -77,6 +79,8 @@ unsigned __stdcall threadProcessData(void*) {
     char msg[100];
 
     SetEvent(hMailSlotReady);
+    cout << "HH:MM:SS NSEQ:###### PR (T):######psi TEMP:######C PR (G):######psi NIVEL:######cm" << endl;
+    cout << "==================================================================================" << endl;
 
     while (true) {
         WaitForSingleObject(hProcessDataExhibitionEvent, INFINITE);
@@ -86,8 +90,22 @@ unsigned __stdcall threadProcessData(void*) {
             exit(1);
         }
 
-        cout << bytesRead << " bytes lidos. Msg: " << msg << endl;
+        cout << formatToExhibition(msg) << endl;
     }
+}
+
+string formatToExhibition(string message) {
+    string nSeq = message.substr(0, 6);
+    string pressT = message.substr(10, 6);
+    string temp = message.substr(17, 6);
+    string pressG = message.substr(24, 6);
+    string level = message.substr(31, 6);
+    string time = message.substr(38);
+
+    stringstream result;
+    result << time << " NSEQ:" << nSeq << " PR (T):" << pressT << "psi TEMP:" << temp << "C PR (G):" << pressG << "psi NIVEL:" << level << "cm";
+
+    return result.str();
 }
 
 unsigned __stdcall threadExit(void*) {

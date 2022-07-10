@@ -475,7 +475,7 @@ void removeOtimizationMessageFromMemory() {
             cout << "Removendo mensagem do tipo " << typeOfMessage << ". Mensagem: " << msg << endl;
             circularMemory.erase(next(circularMemory.begin(), i));
 
-            if ((numSeqOtimization % maxFileRows) == 0) {
+            if ((numSeqOtimization % maxFileMessages) == 0) {
                 SetFilePointer(hFileOtimization, 0, NULL, FILE_BEGIN);
             }
             LogReleaseSemaphore(hSemaphoreListFull);

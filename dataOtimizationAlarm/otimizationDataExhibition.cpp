@@ -1,6 +1,7 @@
 #include <iostream>
 #include <Windows.h>
 #include <process.h> 
+#include <sstream>
 
 #include "../Utils/constants.h"
 #include "../Utils/Message.h"
@@ -17,6 +18,7 @@ HANDLE hSemaphoreHardDisk;
 unsigned __stdcall threadOtimizationData(void*);
 unsigned __stdcall threadExit(void*);
 bool openSemaphores();
+string formatToExhibition(string input);
 
 int main()
 {
@@ -82,8 +84,11 @@ int main()
 
 unsigned __stdcall threadOtimizationData(void*) {
     DWORD bytesRead;
-    char msg[40];
+    char msg[otimizationMsgSize];
     long currentPosition = 0L;
+
+    cout << "NSEQ:###### SP (TEMP):######C SP (PRE):######psi VOL:#####m3 HH:MM:SS" << endl;
+    cout << "=====================================================================" << endl;
 
     while (true) {
         WaitForSingleObject(hAlarmExhibitionEvent, INFINITE);
@@ -95,10 +100,12 @@ unsigned __stdcall threadOtimizationData(void*) {
             cout << "Falha na leitura de arquivo de disco de dados de otimização. Erro código: " << error << endl;
             exit(1);
         }
-        cout << bytesRead << " bytes lidos. Msg: " << msg << endl;
+
+        string strMessage = msg;
+        cout << formatToExhibition(strMessage) << endl;
 
         currentPosition++;
-        if ((currentPosition % maxFileRows) == 0) {
+        if ((currentPosition % maxFileMessages) == 0) {
             SetFilePointer(hFile, 0, NULL, FILE_BEGIN);
         }
     }
@@ -107,6 +114,19 @@ unsigned __stdcall threadOtimizationData(void*) {
 bool openSemaphores() {
     hSemaphoreHardDisk = OpenSemaphore(SEMAPHORE_ALL_ACCESS, FALSE, hardDisksemaphore);
     return hSemaphoreHardDisk;
+}
+
+string formatToExhibition(string message) {
+    string nSeq = message.substr(0, 6);
+    string press = message.substr(10, 6);
+    string temp = message.substr(17, 6);
+    string vol = message.substr(24, 5);
+    string time = message.substr(30, 8);
+
+    stringstream result;
+    result << "NSEQ:" << nSeq << " SP (TEMP):" << temp << "C SP (PRE):" << press << "psi VOL:" << vol << "m3 " << time;
+    
+    return result.str();
 }
 
 unsigned __stdcall threadExit(void*) {

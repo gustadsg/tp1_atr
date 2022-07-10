@@ -13,7 +13,7 @@ string MessageGenerator::generateOtimizationSystemMessage(int position) {
     
 
     stringstream result;
-    result << nseq << pipe << type << pipe << press << pipe << temp << pipe << vol << pipe << time << endl;
+    result << nseq << pipe << type << pipe << press << pipe << temp << pipe << vol << pipe << time;
 
     return result.str();
 }
@@ -32,7 +32,7 @@ string MessageGenerator::generateSCADAMessage(int position) {
 
 
     stringstream result;
-    result << nseq << pipe << type << pipe << pressT << pipe << temp << pipe << pressG << pipe << level << pipe << time << endl;
+    result << nseq << pipe << type << pipe << pressT << pipe << temp << pipe << pressG << pipe << level << pipe << time;
 
     return result.str();
 }
@@ -41,15 +41,15 @@ string MessageGenerator::generateAlarmMessage(int position)
 {
     string nseq = this->padStartNumber(position, 6, "0");
     int type = 55;
-    string ID = this->strRandomFormattedNumber(4, 0, 9999);
-    string priority = this->strRandomFormattedNumber(3, 0, 9999);
+    string ID = this->strRandomFormattedNumber(4, 0, 9);
+    string priority = this->strRandomFormattedNumber(3, 0, 999);
     string time = getTimeString();
 
     string pipe = "|";
 
 
     stringstream result;
-    result << nseq << pipe << type << pipe << ID << pipe << priority << pipe << time << endl;
+    result << nseq << pipe << type << pipe << ID << pipe << priority << pipe << time;
 
     return result.str();
 }

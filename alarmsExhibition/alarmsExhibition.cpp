@@ -3,6 +3,7 @@
 #include <iostream>
 #include <Windows.h>
 #include <process.h> 
+#include <sstream> 
 
 #include "../Utils/constants.h"
 
@@ -21,6 +22,9 @@ HANDLE hClearConsole;
 unsigned __stdcall threadAlarms(void*);
 unsigned __stdcall threadExit(void *);
 unsigned __stdcall threadClearConsole(void*);
+string formatToExhibition(string input);
+string mapIdToText(string ID);
+string fillWithWhitespaces(string str, int size);
 
 int main()
 {
@@ -95,6 +99,8 @@ unsigned __stdcall threadAlarms(void *) {
     char msg[100];
 
     SetEvent(hMailSlotReady);
+    cout << "HH:MM:SS NSEQ: ###### TEXTOTEXTOTEXTOTEXTOTEXTOTEXTO PRI: ###" << endl;
+    cout << "=============================================================" << endl;
 
     while (true) {
         WaitForSingleObject(hAlarmExhibitionEvent, INFINITE);
@@ -104,7 +110,7 @@ unsigned __stdcall threadAlarms(void *) {
             exit(1);
         }
 
-        cout << bytesRead << " bytes lidos. Msg: " << msg << endl;
+        cout << formatToExhibition(msg) << endl;
     }
 }
 
@@ -120,4 +126,71 @@ unsigned __stdcall threadClearConsole(void*) {
         WaitForSingleObject(hClearConsole, INFINITE);
         system("cls");
     }
+}
+
+string formatToExhibition(string input) {
+    string nSeq = input.substr(0, 6);
+    string id = input.substr(11, 4);
+    string priority = input.substr(15, 3);
+    string time = input.substr(19, 8);
+    string text = mapIdToText(id);
+
+    stringstream result;
+    result << time << " NSEQ: " << nSeq << " " << text << " PRI: " << priority;
+    return result.str();
+}
+
+string mapIdToText(string ID) {
+    int idInt = atoi(ID.c_str());
+    string message = "";
+    switch (idInt) {
+    case 0: 
+        message = "Pressao de vapor";
+        break;
+    case 1:
+        message = "Temperatura de vapor";
+        break;
+    case 2:
+        message = "Temperatura vapor DSH secundario";
+        break;
+    case 3:
+        message = "Temperatura vapor DSH primario";
+        break;
+    case 4:
+        message = "Pressao agua de alimentacao";
+        break;
+    case 5:
+        message = "Nivel tubulacao de vapor";
+        break;
+    case 6:
+        message = "Nivel tanque dissolvedor";
+        break;
+    case 7:
+        message = "Vazao agua de alimentacao";
+        break;
+    case 8:
+        message = "Emissao de CO";
+        break;
+    case 9:
+        message = "Vapor DSH primario 2";
+        break;
+    default:
+        break;
+    }
+
+    message = fillWithWhitespaces(message, 30);
+    message = message.substr(0, 30);
+
+    return message;
+}
+
+string fillWithWhitespaces(string str, int size) {
+    if (str.size() >= size) return str;
+
+    stringstream result;
+    result << str;
+    for (int i = str.size(); i < size; i++) {
+        result << " ";
+    }
+    return result.str();
 }
